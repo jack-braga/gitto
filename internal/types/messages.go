@@ -36,8 +36,15 @@ type BranchListMsg struct {
 	Err      error
 }
 
-// StashListMsg is sent when stash list is fetched.
+// StashListMsg is sent when stash list is fetched for the stash dialog overlay.
 type StashListMsg struct {
+	RepoPath string
+	Stashes  []git.Stash
+	Err      error
+}
+
+// StashDataMsg is sent when stash data is loaded for background display (not dialog).
+type StashDataMsg struct {
 	RepoPath string
 	Stashes  []git.Stash
 	Err      error

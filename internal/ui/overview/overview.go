@@ -145,15 +145,20 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.Keys.Discard):
 		return m.discard()
 	case key.Matches(msg, m.Keys.Enter):
-		// Toggle expand/collapse or drill in
+		// Toggle expand/collapse
 		if m.Focus == FocusRepoList {
-			if m.Expanded[m.FocusedRepo] {
-				// Already expanded — signal drill-in
-				return m, func() tea.Msg {
-					return t.DrillInMsg{RepoIndex: m.FocusedRepo}
-				}
+			m.Expanded[m.FocusedRepo] = !m.Expanded[m.FocusedRepo]
+			if !m.Expanded[m.FocusedRepo] {
+				// Collapsing — reset file focus
+				m.Focus = FocusRepoList
 			}
-			m.Expanded[m.FocusedRepo] = true
+		}
+	case key.Matches(msg, m.Keys.DrillIn):
+		// Drill into the focused repo
+		if m.Focus == FocusRepoList || m.Focus == FocusFiles {
+			return m, func() tea.Msg {
+				return t.DrillInMsg{RepoIndex: m.FocusedRepo}
+			}
 		}
 	}
 	return m, nil

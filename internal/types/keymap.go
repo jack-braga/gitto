@@ -19,6 +19,7 @@ type KeyMap struct {
 	Escape   key.Binding
 	Tab      key.Binding
 	ShiftTab key.Binding
+	DrillIn  key.Binding
 
 	// Source control
 	Space         key.Binding
@@ -69,10 +70,11 @@ func DefaultKeyMap() KeyMap {
 		Up:           key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k/↑", "up")),
 		Down:         key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j/↓", "down")),
 
-		Enter:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+		Enter:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "expand/collapse")),
 		Escape:   key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		Tab:      key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next section")),
 		ShiftTab: key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "prev section")),
+		DrillIn:  key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "open repo")),
 
 		Space:         key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "stage/unstage")),
 		StageAll:      key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "stage all")),

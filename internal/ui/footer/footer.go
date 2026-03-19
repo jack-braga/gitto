@@ -45,13 +45,13 @@ func (m Model) View() string {
 	switch {
 	case m.Mode == "overview" && m.ActiveView =="source":
 		hints = [][]string{
-			{"enter", "drill in"},
+			{"enter", "expand/collapse"},
+			{"o", "open repo"},
 			{"space", "stage/unstage"},
 			{"c", "commit"},
 			{"p", "push"},
 			{"l", "pull"},
 			{"b", "branch"},
-			{"e", "open in editor"},
 			{"?", "help"},
 		}
 	case m.Mode == "drillin" && m.ActiveView =="source":

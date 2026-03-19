@@ -52,7 +52,8 @@ func (h HelpOverlay) View() string {
 		{
 			"Overview Mode",
 			[][]string{
-				{"enter", "Drill into repo"},
+				{"enter", "Expand/collapse repo"},
+				{"o", "Open (drill into) repo"},
 				{"space", "Stage/unstage file"},
 				{"S", "Stage all in repo"},
 				{"U", "Unstage all in repo"},

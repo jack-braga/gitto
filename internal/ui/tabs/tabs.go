@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jack-braga/gitto/internal/ui/styles"
 )
 
@@ -19,6 +20,7 @@ const (
 type Model struct {
 	ActiveTab string
 	Width     int
+	IsDrillIn bool // Controls which tabs are shown
 }
 
 // New creates a new tabs model with the given default tab.
@@ -39,20 +41,33 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+type tabDef struct {
+	key  string
+	name string
+	id   string
+}
+
 // View implements tea.Model.
 func (m Model) View() string {
-	tabs := []struct {
-		key  string
-		name string
-		id   string
-	}{
-		{"s", "source control", Source},
-		{"f", "files", Files},
-		{"h", "history", History},
+	var tabList []tabDef
+
+	if m.IsDrillIn {
+		// Drill-in: all three tabs
+		tabList = []tabDef{
+			{"s", "source control", Source},
+			{"f", "files", Files},
+			{"h", "history", History},
+		}
+	} else {
+		// Overview: source control and files only
+		tabList = []tabDef{
+			{"s", "source control", Source},
+			{"f", "files", Files},
+		}
 	}
 
 	var parts []string
-	for _, tab := range tabs {
+	for _, tab := range tabList {
 		label := fmt.Sprintf("[%s] %s", tab.key, tab.name)
 		if tab.id == m.ActiveTab {
 			parts = append(parts, styles.TabActiveStyle.Render(label))
@@ -70,10 +85,9 @@ func (m Model) View() string {
 	}
 	right := styles.ViewLabelStyle.Render("viewing: " + viewName)
 
-	// Calculate spacing
-	leftLen := len([]rune(left)) // approximate
-	rightLen := len([]rune(right))
-	gap := m.Width - leftLen - rightLen - 4
+	leftW := lipgloss.Width(left)
+	rightW := lipgloss.Width(right)
+	gap := m.Width - leftW - rightW - 4
 	if gap < 2 {
 		gap = 2
 	}

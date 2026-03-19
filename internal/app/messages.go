@@ -13,6 +13,7 @@ type (
 	GitOpCompleteMsg      = types.GitOpCompleteMsg
 	BranchListMsg         = types.BranchListMsg
 	StashListMsg          = types.StashListMsg
+	StashDataMsg          = types.StashDataMsg
 	LogMsg                = types.LogMsg
 	FileTreeMsg           = types.FileTreeMsg
 	TickMsg               = types.TickMsg

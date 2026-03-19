@@ -162,11 +162,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case StashListMsg:
+		// User explicitly opened stash dialog (pressed z)
 		if msg.Err == nil {
 			m.StashDialog.Show(msg.RepoPath, msg.Stashes)
 			if m.Mode == ModeDrillIn {
 				m.DrillIn.Stashes = msg.Stashes
 			}
+		}
+
+	case StashDataMsg:
+		// Background stash data load (drill-in entry) — no dialog
+		if msg.Err == nil && m.Mode == ModeDrillIn {
+			m.DrillIn.Stashes = msg.Stashes
 		}
 
 	case LogMsg:
@@ -246,9 +253,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case key.Matches(msg, m.Keys.HistoryView):
-		m.Tabs.ActiveTab = tabs.History
-		m.Footer.ActiveView = tabs.History
+		// History only available in drill-in mode
 		if m.Mode == ModeDrillIn {
+			m.Tabs.ActiveTab = tabs.History
+			m.Footer.ActiveView = tabs.History
 			m.DrillIn.ActiveView = drillin.ViewHistory
 			if len(m.DrillIn.LogEntries) == 0 {
 				return m, m.loadLog()
@@ -426,8 +434,9 @@ func (m *Model) enterDrillIn(repoIndex int) {
 	m.DrillIn = drillin.New(repo, m.Keys, m.Config, m.Width, styles.ContentHeight(m.Height))
 	m.DrillIn.ActiveView = m.Tabs.ActiveTab
 
-	// Update header
+	// Update header and tabs
 	m.Header.IsDrillIn = true
+	m.Tabs.IsDrillIn = true
 	m.Header.RepoName = repo.Name
 	m.Header.Branch = repo.Branch
 	m.Header.Upstream = repo.Upstream
@@ -441,7 +450,13 @@ func (m *Model) enterDrillIn(repoIndex int) {
 func (m *Model) exitDrillIn() {
 	m.Mode = ModeOverview
 	m.Header.IsDrillIn = false
+	m.Tabs.IsDrillIn = false
 	m.Footer.Mode = "overview"
+	// If we were on history tab, switch back to source (not available in overview)
+	if m.Tabs.ActiveTab == tabs.History {
+		m.Tabs.ActiveTab = tabs.Source
+		m.Footer.ActiveView = tabs.Source
+	}
 }
 
 func (m *Model) setStatus(msg string) {
@@ -467,7 +482,7 @@ func (m Model) loadStashes() tea.Cmd {
 	repoPath := m.DrillIn.Repo.Path
 	return func() tea.Msg {
 		stashes, err := git.ListStashes(repoPath)
-		return StashListMsg{RepoPath: repoPath, Stashes: stashes, Err: err}
+		return StashDataMsg{RepoPath: repoPath, Stashes: stashes, Err: err}
 	}
 }
 
