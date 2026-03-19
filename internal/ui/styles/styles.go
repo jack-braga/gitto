@@ -36,7 +36,7 @@ var (
 	Deleted   = lipgloss.AdaptiveColor{Light: "#d32f2f", Dark: "#f38ba8"}
 	Conflict  = lipgloss.AdaptiveColor{Light: "#d32f2f", Dark: "#f38ba8"}
 	Border    = lipgloss.AdaptiveColor{Light: "#cccccc", Dark: "#45475a"}
-	Surface   = lipgloss.AdaptiveColor{Light: "#f5f5f5", Dark: "#313244"}
+	Surface   = lipgloss.AdaptiveColor{Light: "#d3c6aa", Dark: "#264a56"}
 	Clean     = Added
 )
 
@@ -54,7 +54,7 @@ var (
 	TabInactiveStyle = lipgloss.NewStyle().Foreground(Subtle)
 	ViewLabelStyle   = lipgloss.NewStyle().Foreground(Subtle).Italic(true)
 
-	RepoNameStyle        = lipgloss.NewStyle().Bold(true).Foreground(Text)
+	RepoNameStyle        = lipgloss.NewStyle().Bold(true)
 	RepoNameFocusedStyle = lipgloss.NewStyle().Bold(true).Foreground(Highlight)
 	CleanStyle           = lipgloss.NewStyle().Foreground(Clean)
 	ModifiedStyle        = lipgloss.NewStyle().Foreground(Modified)
@@ -71,6 +71,7 @@ var (
 	FooterKeyStyle = lipgloss.NewStyle().Bold(true).Foreground(Highlight)
 
 	SelectedStyle = lipgloss.NewStyle().Background(Surface)
+	CursorStyle   = lipgloss.NewStyle().Foreground(Highlight).Bold(true)
 	DividerStyle  = lipgloss.NewStyle().Foreground(Border)
 
 	CommitInputStyle = lipgloss.NewStyle().
@@ -92,8 +93,17 @@ var (
 const (
 	ExpandedIcon  = "\u25bc" // ▼
 	CollapsedIcon = "\u25ba" // ►
+	CursorIcon    = "\u276f" // ❯
 	FileIndent    = "  "
 )
+
+// Cursor returns the cursor prefix for a focused row, or spaces for alignment.
+func Cursor(focused bool) string {
+	if focused {
+		return CursorStyle.Render(CursorIcon) + " "
+	}
+	return "  "
+}
 
 // StatusStyle returns the appropriate style for a git file status.
 func StatusStyle(status git.FileStatus) lipgloss.Style {

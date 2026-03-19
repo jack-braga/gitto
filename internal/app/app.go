@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -59,11 +60,19 @@ type Model struct {
 	StatusMsg    string
 	StatusExpiry time.Time
 	NoPoll       bool
+
+	// Loading spinner
+	Spinner    spinner.Model
+	Loading    bool
+	LoadingMsg string
 }
 
 // New creates the root application model.
 func New(parentDir string, cfg *config.Config, noPoll bool) Model {
 	keys := DefaultKeyMap()
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(styles.Highlight)
 	return Model{
 		ParentDir:    parentDir,
 		Config:       cfg,
@@ -76,6 +85,7 @@ func New(parentDir string, cfg *config.Config, noPoll bool) Model {
 		BranchPicker: overlays.NewBranchPicker(),
 		StashDialog:  overlays.NewStashDialog(),
 		NoPoll:       noPoll,
+		Spinner:      s,
 	}
 }
 
@@ -148,7 +158,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case spinner.TickMsg:
+		if m.Loading {
+			var cmd tea.Cmd
+			m.Spinner, cmd = m.Spinner.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+		return m, tea.Batch(cmds...)
+
 	case GitOpCompleteMsg:
+		m.Loading = false
 		if msg.Err != nil {
 			m.setStatus("Error: " + msg.Err.Error())
 		} else {
@@ -286,6 +305,19 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openStashDialog()
 	}
 
+	// Detect loading-worthy operations before delegation
+	switch {
+	case key.Matches(msg, m.Keys.Push):
+		m.Loading = true
+		m.LoadingMsg = "Pushing..."
+	case key.Matches(msg, m.Keys.Pull):
+		m.Loading = true
+		m.LoadingMsg = "Pulling..."
+	case key.Matches(msg, m.Keys.FetchKey):
+		m.Loading = true
+		m.LoadingMsg = "Fetching..."
+	}
+
 	// Delegate to mode-specific model
 	var cmd tea.Cmd
 	switch m.Mode {
@@ -295,6 +327,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.DrillIn, cmd = m.DrillIn.Update(msg)
 	}
 
+	if m.Loading {
+		return m, tea.Batch(cmd, m.Spinner.Tick)
+	}
 	return m, cmd
 }
 
@@ -338,8 +373,13 @@ func (m Model) View() string {
 			content = m.DrillIn.View()
 		}
 
+		// Loading spinner
+		if m.Loading {
+			content += "\n  " + m.Spinner.View() + " " + styles.FooterStyle.Render(m.LoadingMsg) + "\n"
+		}
+
 		// Status message
-		if m.StatusMsg != "" && time.Now().Before(m.StatusExpiry) {
+		if !m.Loading && m.StatusMsg != "" && time.Now().Before(m.StatusExpiry) {
 			content += "\n  " + styles.FooterStyle.Render(m.StatusMsg) + "\n"
 		}
 	}

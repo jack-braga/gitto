@@ -576,7 +576,8 @@ func (m Model) viewSource() string {
 		b.WriteString(styles.StashStyle.Render(fmt.Sprintf("STASHES (%d)", len(m.Stashes))) + "\n")
 		for i, s := range m.Stashes {
 			focused := m.Focus == FocusStashes && m.FocusedFile == i
-			line := fmt.Sprintf("  stash@{%d} %s", s.Index, s.Message)
+			cursor := styles.Cursor(focused)
+			line := fmt.Sprintf("%sstash@{%d} %s", cursor, s.Index, s.Message)
 			timeStr := styles.DateStyle.Render(styles.RelativeTime(s.Date))
 			line += "  " + timeStr
 			if focused {
@@ -595,16 +596,17 @@ func (m Model) viewSource() string {
 }
 
 func (m Model) renderSourceFile(f git.FileChange, focused, staged bool) string {
+	cursor := styles.Cursor(focused)
 	status := styles.StatusStyle(f.Status).Render(styles.StatusChar(f.Status))
 
 	// Truncate path if needed to leave room for right-side info
-	maxPathWidth := m.Width - 20 // reserve space for status + margins
+	maxPathWidth := m.Width - 22 // reserve space for cursor + status + margins
 	if maxPathWidth < 10 {
 		maxPathWidth = 10
 	}
 	path := styles.Truncate(f.Path, maxPathWidth)
 
-	line := fmt.Sprintf("  %s  %s", status, path)
+	line := fmt.Sprintf("%s%s  %s", cursor, status, path)
 
 	// Only show right-side details if we have enough room
 	if m.Width > 60 {
@@ -651,6 +653,7 @@ func (m Model) viewFiles() string {
 }
 
 func (m Model) renderTreeNode(node *git.FileTreeNode, focused bool) string {
+	cursor := styles.Cursor(focused)
 	indent := strings.Repeat("  ", node.Depth)
 
 	var icon string
@@ -690,7 +693,7 @@ func (m Model) renderTreeNode(node *git.FileTreeNode, focused bool) string {
 		statusStr = styles.UntrackedStyle.Render("ignored")
 	}
 
-	line := indent + icon + name
+	line := cursor + indent + icon + name
 	if statusStr != "" {
 		leftW := lipgloss.Width(line)
 		rightW := lipgloss.Width(statusStr)
@@ -717,6 +720,7 @@ func (m Model) viewHistory() string {
 
 	for i, entry := range m.LogEntries {
 		focused := i == m.LogCursor
+		cursor := styles.Cursor(focused)
 
 		hash := styles.HashStyle.Render(entry.Hash)
 		msg := entry.Message
@@ -733,7 +737,7 @@ func (m Model) viewHistory() string {
 		if msgWidth < 15 {
 			msgWidth = 15
 		}
-		line := fmt.Sprintf("  %s  %s%s", hash, styles.Truncate(msg, msgWidth), refs)
+		line := fmt.Sprintf("%s%s  %s%s", cursor, hash, styles.Truncate(msg, msgWidth), refs)
 
 		var fullLine string
 		if m.Width > 70 {

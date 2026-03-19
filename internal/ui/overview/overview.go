@@ -52,10 +52,12 @@ func (m Model) Init() tea.Cmd {
 // SetRepos updates the repos list.
 func (m *Model) SetRepos(repos []*git.Repository) {
 	m.Repos = repos
-	// Auto-expand repos with changes
+	// Auto-expand repos with changes only if not already tracked
 	for i, r := range repos {
-		if !r.IsClean() {
-			m.Expanded[i] = true
+		if _, exists := m.Expanded[i]; !exists {
+			if !r.IsClean() {
+				m.Expanded[i] = true
+			}
 		}
 	}
 }
@@ -421,6 +423,8 @@ func (m Model) View() string {
 }
 
 func (m Model) renderRepoHeader(idx int, repo *git.Repository, focused bool) string {
+	cursor := styles.Cursor(focused)
+
 	// Expand/collapse icon
 	icon := styles.CollapsedIcon
 	if m.Expanded[idx] {
@@ -459,7 +463,7 @@ func (m Model) renderRepoHeader(idx int, repo *git.Repository, focused bool) str
 		abParts = append(abParts, styles.BehindStyle.Render(fmt.Sprintf("↓%d", repo.Behind)))
 	}
 
-	line := fmt.Sprintf("%s %s  %s  %s", icon, name, branch, strings.Join(changeParts, " "))
+	line := fmt.Sprintf("%s%s %s  %s  %s", cursor, icon, name, branch, strings.Join(changeParts, " "))
 	if len(abParts) > 0 {
 		line += "  " + strings.Join(abParts, " ")
 	}
@@ -504,8 +508,9 @@ func (m Model) renderRepoFiles(idx int, repo *git.Repository) string {
 }
 
 func (m Model) renderFileRow(f git.FileChange, focused bool) string {
+	cursor := styles.Cursor(focused)
 	status := styles.StatusStyle(f.Status).Render(styles.StatusChar(f.Status))
-	line := fmt.Sprintf("    %s  %s", status, f.Path)
+	line := fmt.Sprintf("  %s%s  %s", cursor, status, f.Path)
 	if focused {
 		return styles.SelectedStyle.Render(line) + "\n"
 	}
