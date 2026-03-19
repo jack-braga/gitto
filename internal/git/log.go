@@ -6,11 +6,13 @@ import (
 	"time"
 )
 
-const logSeparator = "\x00"
+// Use a unit separator (ASCII 31) as delimiter — safe in args unlike NUL.
+const logSeparator = "\x1f"
 
 // GetLog returns the most recent commits for a repository.
 func GetLog(repoPath string, limit int) ([]LogEntry, error) {
-	format := strings.Join([]string{"%h", "%H", "%s", "%an", "%ci", "%D"}, logSeparator)
+	// %x1f is the unit separator in git format strings
+	format := "%h%x1f%H%x1f%s%x1f%an%x1f%ci%x1f%D"
 
 	output, err := GitExec(repoPath, "log",
 		"--format="+format,
