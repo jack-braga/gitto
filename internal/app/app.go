@@ -392,6 +392,21 @@ func (m Model) View() string {
 	m.Viewport.Width = m.Width
 	m.Viewport.Height = contentHeight
 	m.Viewport.SetContent(content)
+
+	// Auto-scroll to keep cursor visible
+	var cursorLine int
+	switch m.Mode {
+	case ModeOverview:
+		cursorLine = m.Overview.CursorLine()
+	case ModeDrillIn:
+		cursorLine = m.DrillIn.CursorLine()
+	}
+	if cursorLine >= m.Viewport.YOffset+contentHeight {
+		m.Viewport.SetYOffset(cursorLine - contentHeight + 1)
+	} else if cursorLine < m.Viewport.YOffset {
+		m.Viewport.SetYOffset(cursorLine)
+	}
+
 	b.WriteString(m.Viewport.View() + "\n")
 
 	// Footer

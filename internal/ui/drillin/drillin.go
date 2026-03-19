@@ -162,6 +162,21 @@ func (m Model) handleSourceKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.discardAll()
 	case key.Matches(msg, m.Keys.OpenEditor):
 		return m.openEditor()
+	case key.Matches(msg, m.Keys.JumpTop):
+		m.FocusedFile = 0
+	case key.Matches(msg, m.Keys.JumpBottom):
+		total := m.totalFiles()
+		if total > 0 {
+			m.FocusedFile = total - 1
+		}
+	case key.Matches(msg, m.Keys.HalfPageDown):
+		for i := 0; i < m.Height/2; i++ {
+			m.moveFileDown()
+		}
+	case key.Matches(msg, m.Keys.HalfPageUp):
+		for i := 0; i < m.Height/2; i++ {
+			m.moveFileUp()
+		}
 	}
 	return m, nil
 }
@@ -401,6 +416,16 @@ func (m Model) handleFilesKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if len(m.FlatTree) > 0 {
 			m.TreeCursor = len(m.FlatTree) - 1
 		}
+	case key.Matches(msg, m.Keys.HalfPageDown):
+		m.TreeCursor += m.Height / 2
+		if len(m.FlatTree) > 0 && m.TreeCursor >= len(m.FlatTree) {
+			m.TreeCursor = len(m.FlatTree) - 1
+		}
+	case key.Matches(msg, m.Keys.HalfPageUp):
+		m.TreeCursor -= m.Height / 2
+		if m.TreeCursor < 0 {
+			m.TreeCursor = 0
+		}
 	}
 	return m, nil
 }
@@ -490,6 +515,16 @@ func (m Model) handleHistoryKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if len(m.LogEntries) > 0 {
 			m.LogCursor = len(m.LogEntries) - 1
 		}
+	case key.Matches(msg, m.Keys.HalfPageDown):
+		m.LogCursor += m.Height / 2
+		if len(m.LogEntries) > 0 && m.LogCursor >= len(m.LogEntries) {
+			m.LogCursor = len(m.LogEntries) - 1
+		}
+	case key.Matches(msg, m.Keys.HalfPageUp):
+		m.LogCursor -= m.Height / 2
+		if m.LogCursor < 0 {
+			m.LogCursor = 0
+		}
 	}
 	return m, nil
 }
@@ -519,6 +554,64 @@ func (m Model) revertCommit() (Model, tea.Cmd) {
 }
 
 // ── View ────────────────────────────────────────────────
+
+// CursorLine returns the line number (0-based) of the focused item in the rendered output.
+func (m Model) CursorLine() int {
+	switch m.ActiveView {
+	case ViewFiles:
+		return 1 + m.TreeCursor // 1 for leading \n
+	case ViewHistory:
+		return 1 + m.LogCursor // 1 for leading \n
+	default:
+		return m.cursorLineSource()
+	}
+}
+
+func (m Model) cursorLineSource() int {
+	// Commit input section: \n, COMMIT MESSAGE, input, alt+s line = 4 lines
+	line := 4
+
+	if len(m.Repo.Staged) > 0 {
+		line++ // \n
+		line++ // STAGED CHANGES (N)
+		for i := range m.Repo.Staged {
+			if m.Focus == FocusStaged && m.FocusedFile == i {
+				return line
+			}
+			line++
+		}
+	}
+
+	if len(m.Repo.Unstaged) > 0 || len(m.Repo.Untracked) > 0 {
+		line++ // \n
+		line++ // CHANGES (N)
+		for i := range m.Repo.Unstaged {
+			if m.Focus == FocusUnstaged && m.FocusedFile == i {
+				return line
+			}
+			line++
+		}
+		for i := range m.Repo.Untracked {
+			if m.Focus == FocusUnstaged && m.FocusedFile == len(m.Repo.Unstaged)+i {
+				return line
+			}
+			line++
+		}
+	}
+
+	if len(m.Stashes) > 0 {
+		line++ // \n
+		line++ // STASHES (N)
+		for i := range m.Stashes {
+			if m.Focus == FocusStashes && m.FocusedFile == i {
+				return line
+			}
+			line++
+		}
+	}
+
+	return line
+}
 
 // View renders the drill-in mode.
 func (m Model) View() string {

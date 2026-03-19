@@ -46,6 +46,8 @@ type KeyMap struct {
 	CopyPath    key.Binding
 	JumpTop     key.Binding
 	JumpBottom  key.Binding
+	HalfPageDown key.Binding
+	HalfPageUp   key.Binding
 
 	// History
 	CherryPick key.Binding
@@ -97,8 +99,10 @@ func DefaultKeyMap() KeyMap {
 		ExpandDir:   key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "expand")),
 		CollapseDir: key.NewBinding(key.WithKeys("h"), key.WithHelp("h", "collapse")),
 		CopyPath:    key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "copy path")),
-		JumpTop:     key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "top")),
-		JumpBottom:  key.NewBinding(key.WithKeys("G"), key.WithHelp("G", "bottom")),
+		JumpTop:      key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "top")),
+		JumpBottom:   key.NewBinding(key.WithKeys("G"), key.WithHelp("G", "bottom")),
+		HalfPageDown: key.NewBinding(key.WithKeys("ctrl+d"), key.WithHelp("ctrl+d", "½ page down")),
+		HalfPageUp:   key.NewBinding(key.WithKeys("ctrl+u"), key.WithHelp("ctrl+u", "½ page up")),
 
 		CherryPick: key.NewBinding(key.WithKeys("K"), key.WithHelp("K", "cherry-pick")),
 		Revert:     key.NewBinding(key.WithKeys("V"), key.WithHelp("V", "revert")),

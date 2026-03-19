@@ -155,6 +155,23 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 				m.Focus = FocusRepoList
 			}
 		}
+	case key.Matches(msg, m.Keys.JumpTop):
+		m.FocusedRepo = 0
+		m.FocusedFile = 0
+		m.Focus = FocusRepoList
+	case key.Matches(msg, m.Keys.JumpBottom):
+		if len(m.Repos) > 0 {
+			m.FocusedRepo = len(m.Repos) - 1
+			m.Focus = FocusRepoList
+		}
+	case key.Matches(msg, m.Keys.HalfPageDown):
+		for i := 0; i < m.Height/2; i++ {
+			m.moveDown()
+		}
+	case key.Matches(msg, m.Keys.HalfPageUp):
+		for i := 0; i < m.Height/2; i++ {
+			m.moveUp()
+		}
 	case key.Matches(msg, m.Keys.DrillIn):
 		// Drill into the focused repo
 		if m.Focus == FocusRepoList || m.Focus == FocusFiles {
@@ -384,6 +401,56 @@ func (m Model) discard() (Model, tea.Cmd) {
 		err := git.DiscardFile(repo.Path, fc.Path, isUntracked)
 		return t.GitOpCompleteMsg{RepoPath: repo.Path, Op: "discard", Err: err}
 	}
+}
+
+// CursorLine returns the line number (0-based) of the focused item in the rendered output.
+func (m Model) CursorLine() int {
+	line := 0
+	for i, repo := range m.Repos {
+		// Repo header line
+		if i == m.FocusedRepo && m.Focus == FocusRepoList {
+			return line
+		}
+		line++ // repo header
+		// Expanded content
+		if m.Expanded[i] {
+			if len(repo.Staged) > 0 {
+				line++ // "Staged (N)" header
+				for j := range repo.Staged {
+					if i == m.FocusedRepo && m.Focus == FocusFiles && m.FocusedFile == j {
+						return line
+					}
+					line++
+				}
+			}
+			if len(repo.Unstaged) > 0 {
+				line++ // "Changes (N)" header
+				for j := range repo.Unstaged {
+					globalIdx := len(repo.Staged) + j
+					if i == m.FocusedRepo && m.Focus == FocusFiles && m.FocusedFile == globalIdx {
+						return line
+					}
+					line++
+				}
+			}
+			if len(repo.Untracked) > 0 {
+				line++ // "Untracked (N)" header
+				for j := range repo.Untracked {
+					globalIdx := len(repo.Staged) + len(repo.Unstaged) + j
+					if i == m.FocusedRepo && m.Focus == FocusFiles && m.FocusedFile == globalIdx {
+						return line
+					}
+					line++
+				}
+			}
+			// Commit input (3 lines)
+			if _, ok := m.CommitInputs[i]; ok && m.Focus == FocusCommitInput && i == m.FocusedRepo {
+				line += 3
+			}
+		}
+		line++ // blank line after repo
+	}
+	return line
 }
 
 // View implements tea.Model.
