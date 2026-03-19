@@ -10,6 +10,22 @@ import (
 	"github.com/jack-braga/gitto/internal/git"
 )
 
+// Minimum terminal dimensions before showing a resize warning.
+const (
+	MinWidth  = 40
+	MinHeight = 10
+)
+
+// Fixed layout heights (lines consumed by chrome).
+const (
+	HeaderHeight  = 1
+	DividerHeight = 1
+	TabsHeight    = 1
+	FooterHeight  = 1
+	// Total chrome = header + divider + tabs + divider + divider + footer = 6
+	ChromeHeight = HeaderHeight + DividerHeight + TabsHeight + DividerHeight + DividerHeight + FooterHeight
+)
+
 // Colors — adaptive for light and dark terminals.
 var (
 	Subtle    = lipgloss.AdaptiveColor{Light: "#888888", Dark: "#6c7086"}
@@ -133,6 +149,9 @@ func Divider(width int) string {
 
 // Truncate truncates a string to maxWidth, appending "…" if truncated.
 func Truncate(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
 	if len(s) <= maxWidth {
 		return s
 	}
@@ -140,6 +159,37 @@ func Truncate(s string, maxWidth int) string {
 		return "…"
 	}
 	return s[:maxWidth-1] + "…"
+}
+
+// ClampLine ensures a rendered line doesn't exceed maxWidth by truncating.
+// It operates on the raw string (may break ANSI — use on pre-render text).
+func ClampLine(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	// lipgloss.Width counts visible runes, ignoring ANSI
+	w := lipgloss.Width(s)
+	if w <= maxWidth {
+		return s
+	}
+	// Rough truncation — trim runes from end
+	runes := []rune(s)
+	for lipgloss.Width(string(runes)) > maxWidth && len(runes) > 0 {
+		runes = runes[:len(runes)-1]
+	}
+	return string(runes)
+}
+
+// PadOrTruncate pads a string to exactly width, or truncates with "…".
+func PadOrTruncate(s string, width int) string {
+	w := lipgloss.Width(s)
+	if w == width {
+		return s
+	}
+	if w > width {
+		return Truncate(s, width)
+	}
+	return s + strings.Repeat(" ", width-w)
 }
 
 // RelativeTime returns a human-readable relative time string.
@@ -173,4 +223,21 @@ func RelativeTime(t time.Time) string {
 		y := seconds / 31536000
 		return fmt.Sprintf("%dy ago", y)
 	}
+}
+
+// ContentHeight calculates the available height for the main content area.
+func ContentHeight(termHeight int) int {
+	h := termHeight - ChromeHeight
+	if h < 1 {
+		h = 1
+	}
+	return h
+}
+
+// TooSmall returns a message to display when the terminal is too small.
+func TooSmall(width, height int) string {
+	msg := "Terminal too small.\nResize to at least 40×10."
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center,
+		lipgloss.NewStyle().Foreground(Subtle).Render(msg),
+	)
 }

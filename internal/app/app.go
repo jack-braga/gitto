@@ -1,11 +1,14 @@
 package app
 
 import (
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jack-braga/gitto/internal/config"
 	"github.com/jack-braga/gitto/internal/git"
 	"github.com/jack-braga/gitto/internal/ui/drillin"
@@ -28,28 +31,29 @@ const (
 // Model is the root Bubble Tea model for gitto.
 type Model struct {
 	// Core state
-	Mode       Mode
-	ParentDir  string
-	RepoPaths  []string
-	Repos      map[string]*git.Repository
-	Config     *config.Config
-	Keys       KeyMap
-	Width      int
-	Height     int
-	Ready      bool
+	Mode      Mode
+	ParentDir string
+	RepoPaths []string
+	Repos     map[string]*git.Repository
+	Config    *config.Config
+	Keys      KeyMap
+	Width     int
+	Height    int
+	Ready     bool
 
 	// Sub-models
-	Header       header.Model
-	Tabs         tabs.Model
-	Footer       footer.Model
-	Overview     overview.Model
-	DrillIn      drillin.Model
+	Header   header.Model
+	Tabs     tabs.Model
+	Footer   footer.Model
+	Overview overview.Model
+	DrillIn  drillin.Model
+	Viewport viewport.Model
 
 	// Overlays
-	BranchPicker overlays.BranchPicker
-	StashDialog  overlays.StashDialog
+	BranchPicker  overlays.BranchPicker
+	StashDialog   overlays.StashDialog
 	ConfirmDialog overlays.ConfirmDialog
-	HelpOverlay  overlays.HelpOverlay
+	HelpOverlay   overlays.HelpOverlay
 
 	// Status
 	StatusMsg    string
@@ -61,17 +65,17 @@ type Model struct {
 func New(parentDir string, cfg *config.Config, noPoll bool) Model {
 	keys := DefaultKeyMap()
 	return Model{
-		ParentDir:     parentDir,
-		Config:        cfg,
-		Keys:          keys,
-		Repos:         make(map[string]*git.Repository),
-		Header:        header.New(parentDir),
-		Tabs:          tabs.New(cfg.DefaultView),
-		Footer:        footer.New(),
-		Overview:      overview.New(keys),
-		BranchPicker:  overlays.NewBranchPicker(),
-		StashDialog:   overlays.NewStashDialog(),
-		NoPoll:        noPoll,
+		ParentDir:    parentDir,
+		Config:       cfg,
+		Keys:         keys,
+		Repos:        make(map[string]*git.Repository),
+		Header:       header.New(parentDir),
+		Tabs:         tabs.New(cfg.DefaultView),
+		Footer:       footer.New(),
+		Overview:     overview.New(keys),
+		BranchPicker: overlays.NewBranchPicker(),
+		StashDialog:  overlays.NewStashDialog(),
+		NoPoll:       noPoll,
 	}
 }
 
@@ -100,15 +104,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.StashDialog.Width = msg.Width
 		m.HelpOverlay.Width = msg.Width
 
+		// Set up viewport with available content height
+		contentHeight := styles.ContentHeight(msg.Height)
+		m.Viewport = viewport.New(msg.Width, contentHeight)
+		m.Viewport.Style = lipglossNoop()
+		// Disable viewport's default keybindings — we handle navigation ourselves
+		m.Viewport.KeyMap = viewport.KeyMap{}
+
 		// Propagate to sub-models
-		var cmd tea.Cmd
-		m.Header, cmd = m.Header.Update(msg)
-		cmds = append(cmds, cmd)
-		m.Overview, cmd = m.Overview.Update(msg)
-		cmds = append(cmds, cmd)
+		m.Overview.Width = msg.Width
+		m.Overview.Height = contentHeight
 		if m.Mode == ModeDrillIn {
-			m.DrillIn, cmd = m.DrillIn.Update(msg)
-			cmds = append(cmds, cmd)
+			m.DrillIn.Width = msg.Width
+			m.DrillIn.Height = contentHeight
 		}
 
 	case tea.KeyMsg:
@@ -146,7 +154,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.setStatus(msg.Op + " completed")
 		}
-		// Refresh the affected repo
 		cmds = append(cmds, m.refreshRepo(msg.RepoPath))
 
 	case BranchListMsg:
@@ -179,7 +186,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case overlays.ConfirmResult:
-		// Handle confirmed actions (could extend this)
+		// Handle confirmed actions
 
 	case DrillInMsg:
 		m.enterDrillIn(msg.RepoIndex)
@@ -277,52 +284,75 @@ func (m Model) View() string {
 		return "\n  Initializing...\n"
 	}
 
-	var s string
+	// Min-size guard
+	if m.Width < styles.MinWidth || m.Height < styles.MinHeight {
+		return styles.TooSmall(m.Width, m.Height)
+	}
+
+	var b strings.Builder
 
 	// Header
-	s += m.Header.View() + "\n"
-	s += styles.Divider(m.Width) + "\n"
+	b.WriteString(styles.ClampLine(m.Header.View(), m.Width) + "\n")
+	b.WriteString(styles.Divider(m.Width) + "\n")
 
 	// Tabs
-	s += m.Tabs.View() + "\n"
-	s += styles.Divider(m.Width) + "\n"
+	b.WriteString(styles.ClampLine(m.Tabs.View(), m.Width) + "\n")
+	b.WriteString(styles.Divider(m.Width) + "\n")
 
-	// Overlays
+	// Content area — rendered into viewport for scrolling
+	var content string
+
 	if m.HelpOverlay.Active {
-		s += m.HelpOverlay.View()
-		return s
-	}
-	if m.BranchPicker.Active {
-		s += m.BranchPicker.View()
-		return s
-	}
-	if m.StashDialog.Active {
-		s += m.StashDialog.View()
-		return s
-	}
-	if m.ConfirmDialog.Active {
-		s += m.ConfirmDialog.View()
-		return s
+		content = m.HelpOverlay.View()
+	} else if m.BranchPicker.Active {
+		content = m.BranchPicker.View()
+	} else if m.StashDialog.Active {
+		content = m.StashDialog.View()
+	} else if m.ConfirmDialog.Active {
+		content = m.ConfirmDialog.View()
+	} else {
+		switch m.Mode {
+		case ModeOverview:
+			content = m.Overview.View()
+		case ModeDrillIn:
+			content = m.DrillIn.View()
+		}
+
+		// Status message
+		if m.StatusMsg != "" && time.Now().Before(m.StatusExpiry) {
+			content += "\n  " + styles.FooterStyle.Render(m.StatusMsg) + "\n"
+		}
 	}
 
-	// Main content
-	switch m.Mode {
-	case ModeOverview:
-		s += m.Overview.View()
-	case ModeDrillIn:
-		s += m.DrillIn.View()
-	}
+	// Clamp each line to terminal width
+	content = clampContent(content, m.Width)
 
-	// Status message
-	if m.StatusMsg != "" && time.Now().Before(m.StatusExpiry) {
-		s += "\n  " + styles.FooterStyle.Render(m.StatusMsg) + "\n"
-	}
+	// Fit content into viewport
+	contentHeight := styles.ContentHeight(m.Height)
+	m.Viewport.Width = m.Width
+	m.Viewport.Height = contentHeight
+	m.Viewport.SetContent(content)
+	b.WriteString(m.Viewport.View() + "\n")
 
 	// Footer
-	s += "\n" + styles.Divider(m.Width) + "\n"
-	s += m.Footer.View() + "\n"
+	b.WriteString(styles.Divider(m.Width) + "\n")
+	b.WriteString(styles.ClampLine(m.Footer.View(), m.Width))
 
-	return s
+	return b.String()
+}
+
+// clampContent truncates each line in a multi-line string to maxWidth.
+func clampContent(content string, maxWidth int) string {
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		lines[i] = styles.ClampLine(line, maxWidth)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// lipglossNoop returns an empty lipgloss style.
+func lipglossNoop() lipgloss.Style {
+	return lipgloss.NewStyle()
 }
 
 // ── Helper methods ──────────────────────────────────────
@@ -393,7 +423,7 @@ func (m *Model) enterDrillIn(repoIndex int) {
 	repo := repos[repoIndex]
 
 	m.Mode = ModeDrillIn
-	m.DrillIn = drillin.New(repo, m.Keys, m.Config, m.Width, m.Height)
+	m.DrillIn = drillin.New(repo, m.Keys, m.Config, m.Width, styles.ContentHeight(m.Height))
 	m.DrillIn.ActiveView = m.Tabs.ActiveTab
 
 	// Update header

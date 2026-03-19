@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	t "github.com/jack-braga/gitto/internal/types"
 	"github.com/jack-braga/gitto/internal/config"
 	"github.com/jack-braga/gitto/internal/editor"
@@ -537,7 +538,11 @@ func (m Model) viewSource() string {
 	// Commit input
 	b.WriteString("\n")
 	b.WriteString("  " + styles.CommitLabelStyle.Render("COMMIT MESSAGE") + "\n")
-	b.WriteString("  " + styles.CommitInputStyle.Render(m.CommitInput.View()) + "\n")
+	inputWidth := m.Width - 6
+	if inputWidth < 20 {
+		inputWidth = 20
+	}
+	b.WriteString("  " + styles.CommitInputStyle.MaxWidth(inputWidth).Render(m.CommitInput.View()) + "\n")
 	b.WriteString("  " + styles.FooterStyle.Render("ctrl+s commit staged  ctrl+a amend  ctrl+p commit + push") + "\n")
 
 	// Staged changes
@@ -591,39 +596,42 @@ func (m Model) viewSource() string {
 
 func (m Model) renderSourceFile(f git.FileChange, focused, staged bool) string {
 	status := styles.StatusStyle(f.Status).Render(styles.StatusChar(f.Status))
-	path := f.Path
 
-	var diffInfo string
-	if f.Insertions > 0 || f.Deletions > 0 {
-		diffInfo = styles.AddedStyle.Render(fmt.Sprintf("+%d", f.Insertions)) + " " +
-			styles.DeletedStyle.Render(fmt.Sprintf("-%d", f.Deletions))
+	// Truncate path if needed to leave room for right-side info
+	maxPathWidth := m.Width - 20 // reserve space for status + margins
+	if maxPathWidth < 10 {
+		maxPathWidth = 10
 	}
-
-	var action string
-	if staged {
-		action = styles.FooterStyle.Render("[u]nstage")
-	} else {
-		action = styles.FooterStyle.Render("[s]tage [d]iscard")
-	}
+	path := styles.Truncate(f.Path, maxPathWidth)
 
 	line := fmt.Sprintf("  %s  %s", status, path)
-	right := ""
-	if diffInfo != "" {
-		right += "  " + diffInfo
-	}
-	right += "  " + action
 
-	// Pad to width
-	gap := m.Width - len(line) - len(right) - 2
-	if gap < 1 {
-		gap = 1
+	// Only show right-side details if we have enough room
+	if m.Width > 60 {
+		var right string
+		if f.Insertions > 0 || f.Deletions > 0 {
+			right += "  " + styles.AddedStyle.Render(fmt.Sprintf("+%d", f.Insertions)) + " " +
+				styles.DeletedStyle.Render(fmt.Sprintf("-%d", f.Deletions))
+		}
+		if staged {
+			right += "  " + styles.FooterStyle.Render("[u]nstage")
+		} else {
+			right += "  " + styles.FooterStyle.Render("[s]tage [d]iscard")
+		}
+
+		leftW := lipgloss.Width(line)
+		rightW := lipgloss.Width(right)
+		gap := m.Width - leftW - rightW
+		if gap < 1 {
+			gap = 1
+		}
+		line += strings.Repeat(" ", gap) + right
 	}
-	fullLine := line + strings.Repeat(" ", gap) + right
 
 	if focused {
-		return styles.SelectedStyle.Render(fullLine) + "\n"
+		return styles.SelectedStyle.Render(line) + "\n"
 	}
-	return fullLine + "\n"
+	return line + "\n"
 }
 
 func (m Model) viewFiles() string {
@@ -684,7 +692,9 @@ func (m Model) renderTreeNode(node *git.FileTreeNode, focused bool) string {
 
 	line := indent + icon + name
 	if statusStr != "" {
-		gap := m.Width - len(line) - len(statusStr) - 2
+		leftW := lipgloss.Width(line)
+		rightW := lipgloss.Width(statusStr)
+		gap := m.Width - leftW - rightW - 2
 		if gap < 1 {
 			gap = 1
 		}
@@ -718,14 +728,26 @@ func (m Model) viewHistory() string {
 			refs += " " + styles.RefStyle.Render(ref)
 		}
 
-		line := fmt.Sprintf("  %s    %s%s", hash, styles.Truncate(msg, m.Width/2), refs)
-		right := fmt.Sprintf("%s    %s", timeStr, author)
-
-		gap := m.Width - len(line) - len(right) - 2
-		if gap < 1 {
-			gap = 1
+		// Adapt message width to terminal size
+		msgWidth := m.Width/2 - 15
+		if msgWidth < 15 {
+			msgWidth = 15
 		}
-		fullLine := line + strings.Repeat(" ", gap) + right
+		line := fmt.Sprintf("  %s  %s%s", hash, styles.Truncate(msg, msgWidth), refs)
+
+		var fullLine string
+		if m.Width > 70 {
+			right := fmt.Sprintf("%s  %s", timeStr, author)
+			leftW := lipgloss.Width(line)
+			rightW := lipgloss.Width(right)
+			gap := m.Width - leftW - rightW
+			if gap < 1 {
+				gap = 1
+			}
+			fullLine = line + strings.Repeat(" ", gap) + right
+		} else {
+			fullLine = line
+		}
 
 		if focused {
 			b.WriteString(styles.SelectedStyle.Render(fullLine) + "\n")
