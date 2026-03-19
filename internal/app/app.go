@@ -226,6 +226,18 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	// If a text input is focused, skip global keys — let the sub-model handle them
+	if m.isTextInputActive() {
+		var cmd tea.Cmd
+		switch m.Mode {
+		case ModeOverview:
+			m.Overview, cmd = m.Overview.Update(msg)
+		case ModeDrillIn:
+			m.DrillIn, cmd = m.DrillIn.Update(msg)
+		}
+		return m, cmd
+	}
+
 	// Global keys
 	switch {
 	case key.Matches(msg, m.Keys.Quit):
@@ -361,6 +373,18 @@ func clampContent(content string, maxWidth int) string {
 // lipglossNoop returns an empty lipgloss style.
 func lipglossNoop() lipgloss.Style {
 	return lipgloss.NewStyle()
+}
+
+// isTextInputActive returns true if a text input is currently focused,
+// meaning global keybindings should be bypassed so the user can type.
+func (m Model) isTextInputActive() bool {
+	if m.Mode == ModeOverview && m.Overview.Focus == overview.FocusCommitInput {
+		return true
+	}
+	if m.Mode == ModeDrillIn && m.DrillIn.CommitInput.Focused() {
+		return true
+	}
+	return false
 }
 
 // ── Helper methods ──────────────────────────────────────
