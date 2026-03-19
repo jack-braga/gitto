@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Run tests
+        run: go test ./... -v
+
+      - name: Build
+        run: go build -o gitto .
+
+      - name: Verify binary
+        run: ./gitto --version
+
+      - if: failure()
+        run: curl -d "❌ gitto CI failed on ${{ github.sha }}" ntfy.sh/jsb-gh
