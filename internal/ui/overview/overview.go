@@ -295,9 +295,9 @@ func (m Model) updateCommitInput(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.CommitInputs[m.FocusedRepo] = ti
 		m.Focus = FocusRepoList
 		return m, nil
-	case "ctrl+s":
+	case "alt+s":
 		return m.submitCommit(false)
-	case "ctrl+p":
+	case "alt+p":
 		return m.submitCommit(true)
 	default:
 		ti := m.CommitInputs[m.FocusedRepo]
@@ -407,7 +407,7 @@ func (m Model) View() string {
 			if ti, ok := m.CommitInputs[i]; ok && m.Focus == FocusCommitInput && i == m.FocusedRepo {
 				b.WriteString("  " + styles.CommitLabelStyle.Render("COMMIT MESSAGE") + "\n")
 				b.WriteString("  " + styles.CommitInputStyle.Render(ti.View()) + "\n")
-				b.WriteString("  " + styles.FooterStyle.Render("ctrl+s submit  ctrl+p commit+push  esc cancel") + "\n")
+				b.WriteString("  " + styles.FooterStyle.Render("alt+s submit  alt+p commit+push  esc cancel") + "\n")
 			}
 		}
 		b.WriteString("\n")

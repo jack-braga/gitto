@@ -172,11 +172,11 @@ func (m Model) updateCommitInput(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.CommitInput.Blur()
 		m.Focus = FocusStaged
 		return m, nil
-	case "ctrl+s":
+	case "alt+s":
 		return m.submitCommit(false, false)
-	case "ctrl+a":
+	case "alt+a":
 		return m.submitCommit(false, true)
-	case "ctrl+p":
+	case "alt+p":
 		return m.submitCommit(true, false)
 	default:
 		var cmd tea.Cmd
@@ -543,7 +543,7 @@ func (m Model) viewSource() string {
 		inputWidth = 20
 	}
 	b.WriteString("  " + styles.CommitInputStyle.MaxWidth(inputWidth).Render(m.CommitInput.View()) + "\n")
-	b.WriteString("  " + styles.FooterStyle.Render("ctrl+s commit staged  ctrl+a amend  ctrl+p commit + push") + "\n")
+	b.WriteString("  " + styles.FooterStyle.Render("alt+s commit staged  alt+a amend  alt+p commit + push") + "\n")
 
 	// Staged changes
 	if len(m.Repo.Staged) > 0 {
